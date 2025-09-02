@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seguimiento de Piezas</title>
+  <style>
+    body{font-family:sans-serif;margin:0;padding:0;background:#f4f4f9;}
+    header{background:#2a3d66;color:#fff;padding:1rem;text-align:center;font-size:1.4rem;font-weight:bold;}
+    main{padding:1rem;}
+    .card{background:#fff;padding:1rem;margin-bottom:1rem;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1);}
+    label{display:block;margin-top:.5rem;font-weight:bold;}
+    input,select,button{padding:.4rem;margin-top:.2rem;width:100%;max-width:400px;}
+    button{background:#2a3d66;color:#fff;border:none;border-radius:5px;cursor:pointer;}
+    button:hover{background:#1d2b4f;}
+    table{width:100%;border-collapse:collapse;margin-top:1rem;}
+    th,td{border:1px solid #ccc;padding:.5rem;text-align:left;}
+    th{background:#eee;}
+    .tag{padding:.2rem .5rem;border-radius:5px;color:#fff;font-size:.8rem;}
+    .ok{background:green;}
+    .warn{background:orange;}
+    .muted{color:#555;font-size:.9rem;}
+    nav{display:flex;gap:1rem;margin-bottom:1rem;}
+    nav button{flex:1;}
+    #estatusSection.locked{display:none;}
+  </style>
+</head>
+<body>
+  <header>📦 Seguimiento de Piezas</header>
+  <main>
+    <nav>
+      <button onclick="mostrar('alta')">➕ Alta de Piezas</button>
+      <button onclick="mostrar('estatus')">📋 Estatus de Piezas</button>
+      <button onclick="mostrar('actualizar')">♻️ Actualizar Estatus</button>
+    </nav>
+
+    <!-- Alta de piezas -->
+    <section id="altaSection" class="card">
+      <h2>Alta de Piezas</h2>
+      <form id="formAlta">
+        <label>Número de pieza:</label>
+        <input type="number" id="noPieza" placeholder="Se genera automáticamente si se deja vacío" />
+
+        <label>Área:</label>
+        <input type="text" id="area" placeholder="Ejemplo: Producción" />
+
+        <label>Estatus actual:</label>
+        <select id="estatus">
+          <option value="Recibida">Recibida</option>
+          <option value="Liberada">Liberada</option>
+        </select>
+
+        <label>Responsable:</label>
+        <input type="text" id="responsable" placeholder="Nombre del responsable" />
+
+        <button type="submit">Guardar</button>
+      </form>
+    </section>
+
+    <!-- Estatus de piezas (bloqueado con contraseña) -->
+    <section id="estatusSection" class="card locked">
+      <h2>Estatus de Piezas</h2>
+      <input type="text" id="buscar" placeholder="🔍 Buscar por número, responsable o área" oninput="renderEstatus(this.value)" />
+      <table>
+        <thead>
+          <tr><th>No. Pieza</th><th>Área</th><th>Estatus</th><th>Responsable</th><th>Fecha/Hora</th></tr>
+        </thead>
+        <tbody id="tablaEstatus"></tbody>
+      </table>
+      <p class="muted">Total piezas: <span id="total">0</span></p>
+    </section>
+
+    <!-- Actualizar estatus -->
+    <section id="actualizarSection" class="card" style="display:none;">
+      <h2>Actualizar Estatus</h2>
+      <form id="formActualizar">
+        <label>Número de pieza:</label>
+        <input type="number" id="noPiezaActualizar" required />
+
+        <label>Área:</label>
+        <input type="text" id="areaActualizar" placeholder="Ejemplo: Producción" required />
+
+        <label>Estatus actual:</label>
+        <select id="estatusActualizar">
+          <option value="Recibida">Recibida</option>
+          <option value="Liberada">Liberada</option>
+        </select>
+
+        <label>Responsable:</label>
+        <input type="text" id="responsableActualizar" placeholder="Nombre del responsable" required />
+
+        <button type="submit">Actualizar</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const formAlta=document.getElementById('formAlta');
+    const formActualizar=document.getElementById('formActualizar');
+    const el={
+      noPieza:document.getElementById('noPieza'),
+      area:document.getElementById('area'),
+      estatus:document.getElementById('estatus'),
+      responsable:document.getElementById('responsable'),
+      tablaEstatus:document.getElementById('tablaEstatus'),
+      total:document.getElementById('total'),
+      estatusSection:document.getElementById('estatusSection')
+    };
+
+    // Cargar y guardar en localStorage
+    function cargar(){return JSON.parse(localStorage.getItem('piezas')||'[]');}
+    function guardar(piezas){localStorage.setItem('piezas',JSON.stringify(piezas));}
+
+    // Guardar pieza nueva
+    formAlta.onsubmit=e=>{
+      e.preventDefault();
+      let piezas=cargar();
+      let no=el.noPieza.value?parseInt(el.noPieza.value): (piezas.length? piezas[piezas.length-1].no_pieza+1:1);
+      const reg={
+        no_pieza:no,
+        area:el.area.value,
+        estatus:el.estatus.value,
+        responsable:el.responsable.value,
+        fechaHora:new Date().toLocaleString()
+      };
+      piezas.push(reg);
+      guardar(piezas);
+      alert('✅ Pieza guardada');
+      formAlta.reset();
+      renderEstatus();
+    };
+
+    // Actualizar estatus (agregar nuevo registro sin borrar el anterior)
+    formActualizar.onsubmit=e=>{
+      e.preventDefault();
+      let piezas=cargar();
+      const reg={
+        no_pieza:parseInt(document.getElementById('noPiezaActualizar').value),
+        area:document.getElementById('areaActualizar').value,
+        estatus:document.getElementById('estatusActualizar').value,
+        responsable:document.getElementById('responsableActualizar').value,
+        fechaHora:new Date().toLocaleString()
+      };
+      piezas.push(reg); // se agrega como nuevo registro (historial)
+      guardar(piezas);
+      alert('♻️ Estatus actualizado (nuevo registro agregado)');
+      formActualizar.reset();
+      renderEstatus();
+    };
+
+    // Renderizar estatus con búsqueda (incluye búsqueda por número)
+    function renderEstatus(filtro=''){
+      const piezas=cargar();
+      const q=filtro.trim().toLowerCase();
+
+      const rows=piezas.filter(p=>
+          !q ||
+          String(p.no_pieza).toLowerCase().includes(q) ||
+          (p.responsable||'').toLowerCase().includes(q) ||
+          (p.area||'').toLowerCase().includes(q)
+      )
+      .sort((a,b)=>parseInt(b.no_pieza,10)-parseInt(a.no_pieza,10));
+
+      el.tablaEstatus.innerHTML=rows.map(p=>{
+        const badge=p.estatus==='Liberada'?'tag ok':'tag warn';
+        return `<tr>
+          <td><strong>${p.no_pieza}</strong></td>
+          <td>${p.area}</td>
+          <td><span class="${badge}">${p.estatus}</span></td>
+          <td>${p.responsable||''}</td>
+          <td class="muted">${p.fechaHora}</td>
+        </tr>`;
+      }).join('');
+
+      el.total.textContent=String(piezas.length);
+    }
+
+    // Mostrar secciones con contraseña para estatus
+    function mostrar(seccion){
+      document.getElementById('altaSection').style.display='none';
+      el.estatusSection.style.display='none';
+      document.getElementById('actualizarSection').style.display='none';
+
+      if(seccion==='alta'){
+        document.getElementById('altaSection').style.display='block';
+      } else if(seccion==='estatus'){
+        const pass=prompt("🔐 Ingrese la contraseña para acceder:");
+        if(pass==="12345RFG"){
+          el.estatusSection.style.display='block';
+          renderEstatus();
+        }else{
+          alert("❌ Contraseña incorrecta");
+        }
+      } else if(seccion==='actualizar'){
+        document.getElementById('actualizarSection').style.display='block';
+      }
+    }
+
+    // Iniciar en la sección de alta
+    mostrar('alta');
+  </script>
+</body>
+</html>
